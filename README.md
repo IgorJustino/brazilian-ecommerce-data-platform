@@ -35,6 +35,16 @@ brazilian-ecommerce-data-platform/
 
 Os notebooks de ETL e exploracao ficam em `notebooks/`.
 
+## Validacao da RAW
+
+A etapa de ingestao e validacao da camada RAW pode ser executada com:
+
+```bash
+python src/raw_validation.py
+```
+
+O processo carrega todos os CSVs em `Data Layer/raw/`, valida existencia dos datasets, quantidade de registros, tipos, valores nulos, duplicidades e chaves de relacionamento. O relatorio e gerado em `docs/raw_validation_report.md`.
+
 ## Ambiente
 
 O projeto esta preparado para evoluir com ambiente Python, Jupyter e Docker. As dependencias devem ser registradas em `requirements.txt` conforme forem adicionadas.
