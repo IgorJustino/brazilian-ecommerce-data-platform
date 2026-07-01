@@ -10,6 +10,11 @@ RAW_OLIST_DIR = PROJECT_ROOT / "Data Layer" / "raw" / "olist"
 SILVER_DIR = PROJECT_ROOT / "Data Layer" / "silver"
 
 
+def normalize_zip_prefix(series: pd.Series) -> pd.Series:
+    zip_str = pd.to_numeric(series, errors="coerce").astype("Int64").astype("string")
+    return zip_str.str.zfill(5)
+
+
 def read_olist_csv(filename: str) -> pd.DataFrame:
     return pd.read_csv(RAW_OLIST_DIR / filename, low_memory=False)
 
@@ -138,6 +143,9 @@ def add_derived_columns(fact_sales: pd.DataFrame) -> pd.DataFrame:
     fact_sales["total_item_value"] = fact_sales["price"] + fact_sales["freight_value"]
     fact_sales["total_order_payment"] = fact_sales["payment_value_total"]
 
+    for zip_col in ["customer_zip_code_prefix", "seller_zip_code_prefix"]:
+        fact_sales[zip_col] = normalize_zip_prefix(fact_sales[zip_col])
+
     return fact_sales
 
 
@@ -260,17 +268,17 @@ def validate_fact_sales(fact_sales: pd.DataFrame, order_items: pd.DataFrame) -> 
         raise ValueError("Logical key contains null values")
 
 
-def write_outputs(fact_sales: pd.DataFrame) -> list[Path]:
+def write_outputs(fact_sales_olist: pd.DataFrame) -> list[Path]:
     SILVER_DIR.mkdir(parents=True, exist_ok=True)
     outputs: list[Path] = []
 
-    csv_path = SILVER_DIR / "fact_sales.csv"
-    fact_sales.to_csv(csv_path, index=False)
+    csv_path = SILVER_DIR / "fact_sales_olist.csv"
+    fact_sales_olist.to_csv(csv_path, index=False)
     outputs.append(csv_path)
 
-    parquet_path = SILVER_DIR / "fact_sales.parquet"
+    parquet_path = SILVER_DIR / "fact_sales_olist.parquet"
     try:
-        fact_sales.to_parquet(parquet_path, index=False)
+        fact_sales_olist.to_parquet(parquet_path, index=False)
     except ImportError:
         pass
     else:
@@ -281,14 +289,17 @@ def write_outputs(fact_sales: pd.DataFrame) -> list[Path]:
 
 def main() -> None:
     datasets = load_olist_datasets()
-    fact_sales = build_fact_sales(datasets)
-    validate_fact_sales(fact_sales, datasets["order_items"])
-    outputs = write_outputs(fact_sales)
+    fact_sales_olist = build_fact_sales(datasets)
+    validate_fact_sales(fact_sales_olist, datasets["order_items"])
+    outputs = write_outputs(fact_sales_olist)
 
-    print(f"fact_sales rows: {len(fact_sales)}")
-    print(f"fact_sales columns: {len(fact_sales.columns)}")
-    print(f"duplicated logical keys: {int(fact_sales.duplicated(['order_id', 'order_item_id']).sum())}")
-    print(f"memory_mb: {fact_sales.memory_usage(deep=True).sum() / 1024**2:.2f}")
+    print(f"fact_sales_olist rows: {len(fact_sales_olist)}")
+    print(f"fact_sales_olist columns: {len(fact_sales_olist.columns)}")
+    print(
+        "duplicated logical keys: "
+        f"{int(fact_sales_olist.duplicated(['order_id', 'order_item_id']).sum())}"
+    )
+    print(f"memory_mb: {fact_sales_olist.memory_usage(deep=True).sum() / 1024**2:.2f}")
     for output in outputs:
         print(f"written: {output.relative_to(PROJECT_ROOT)}")
 
